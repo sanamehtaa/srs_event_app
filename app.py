@@ -2,21 +2,101 @@ import streamlit as st
 import openai
 from openai import OpenAI
 import time
+import os
+
+def load_css():
+    """Load external CSS file"""
+    with open('style.css') as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+# Load custom CSS
+load_css()
 
 # Page configuration
 st.set_page_config(
-    page_title="OpenAI Assistant Chat",
-    page_icon="🤖",
-    layout="wide"
+    page_title="Ask Lily",
+    page_icon="💬",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+    menu_items=None
 )
 
-# Initialize OpenAI client
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-ASSISTANT_ID = st.secrets["ASSISTANT_ID"]
+# Force light mode theme
+st.markdown("""
+<style>
+    .stApp {
+        background-color: white;
+    }
+    .stChatMessage {
+        background-color: transparent;
+    }
+    .stChatMessage[data-testid="chatMessage"] {
+        background-color: transparent;
+    }
+    .stChatInput {
+        background-color: white;
+    }
+    /* Ensure assistant messages are visible */
+    .stChatMessage:nth-child(even) .stChatMessageContent {
+        background-color: #f8f9fa !important;
+        color: #000000 !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    /* Ensure user messages are visible */
+    .stChatMessage:nth-child(odd) .stChatMessageContent {
+        background-color: #e3f2fd !important;
+        color: #000000 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Initialize OpenAI client with error handling
+try:
+    # Try to get API key from environment variable first, then from Streamlit secrets
+    api_key = os.getenv("OPENAI_API_KEY") or st.secrets["OPENAI_API_KEY"]
+    assistant_id = os.getenv("ASSISTANT_ID") or st.secrets["ASSISTANT_ID"]
+    
+    client = OpenAI(api_key=api_key)
+    ASSISTANT_ID = assistant_id
+except (KeyError, TypeError):
+    st.error("""
+    ⚠️ **Configuration Error**
+    
+    Please configure your API keys using one of these methods:
+    
+    **Method 1: Environment Variables**
+    Set these environment variables:
+    ```
+    OPENAI_API_KEY=your-openai-api-key-here
+    ASSISTANT_ID=your-assistant-id-here
+    ```
+    
+    **Method 2: Streamlit Secrets (Recommended for Streamlit Cloud)**
+    1. Go to your app's dashboard
+    2. Click "Settings" → "Secrets"
+    3. Add your secrets:
+    ```
+    OPENAI_API_KEY = "your-openai-api-key-here"
+    ASSISTANT_ID = "your-assistant-id-here"
+    ```
+    
+    **Method 3: Local Development**
+    Create a `.streamlit/secrets.toml` file with:
+    ```
+    OPENAI_API_KEY = "your-openai-api-key-here"
+    ASSISTANT_ID = "your-assistant-id-here"
+    ```
+    """)
+    st.stop()
 
 # Initialize session state
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {
+            "role": "assistant", 
+            "content": "Hi! I am Lily, how can I help you with the SRS innovation summit?"
+        }
+    ]
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = None
 
@@ -69,8 +149,7 @@ def send_message(message):
     return None
 
 # App header
-st.title("🤖 OpenAI Assistant Chat")
-st.markdown("---")
+st.title("💬 Ask Lily")
 
 # Chat display area
 chat_container = st.container()
@@ -83,10 +162,8 @@ with chat_container:
 
 # Input area
 with st.container():
-    st.markdown("---")
-    
     # Message input
-    user_input = st.chat_input("Type your message here...")
+    user_input = st.chat_input("Message Lily...")
     
     if user_input:
         # Add user message to chat
@@ -98,7 +175,7 @@ with st.container():
         
         # Get assistant response
         with st.chat_message("assistant"):
-            with st.spinner("Assistant is thinking..."):
+            with st.spinner("AI is thinking..."):
                 response = send_message(user_input)
                 
                 if response:
@@ -107,18 +184,4 @@ with st.container():
                 else:
                     st.error("Failed to get response from assistant")
 
-# Sidebar with controls
-with st.sidebar:
-    st.header("Controls")
-    
-    if st.button("Clear Chat"):
-        st.session_state.messages = []
-        st.session_state.thread_id = None
-        st.rerun()
-    
-    st.markdown("---")
-    st.markdown("**Instructions:**")
-    st.markdown("1. Type your message in the input box")
-    st.markdown("2. Press Enter or click Send")
-    st.markdown("3. Wait for the assistant's response")
-    st.markdown("4. Use 'Clear Chat' to start a new conversation") 
+ 
